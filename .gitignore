@@ -15,5 +15,5 @@ keystore.properties
 *.keystore
 
 # Local captures
-screenshots/
+/screenshots/
 store/screenshots/raw-*
