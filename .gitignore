@@ -1,0 +1,19 @@
+# Gradle / IDE
+.gradle/
+.idea/
+*.iml
+local.properties
+
+# Build outputs
+build/
+app/build/
+dist/
+
+# Signing material — never commit these
+keystore.properties
+*.jks
+*.keystore
+
+# Local captures
+screenshots/
+store/screenshots/raw-*

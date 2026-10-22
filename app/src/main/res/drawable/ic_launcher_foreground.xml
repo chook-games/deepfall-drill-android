@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- fins -->
+    <path
+        android:fillColor="#3B414B"
+        android:pathData="M34,38 h4 v18 h-4 z M70,38 h4 v18 h-4 z" />
+
+    <!-- body -->
+    <path
+        android:fillColor="#7D8694"
+        android:pathData="M42,26 h24 a5,5 0 0 1 5,5 v25 a5,5 0 0 1 -5,5 h-24 a5,5 0 0 1 -5,-5 v-25 a5,5 0 0 1 5,-5 z" />
+
+    <!-- hazard stripe -->
+    <path
+        android:fillColor="#E0A03A"
+        android:pathData="M37,44 h34 v6 h-34 z" />
+    <path
+        android:fillColor="#1B1004"
+        android:pathData="M43,44 h3 v6 h-3 z M51,44 h3 v6 h-3 z M59,44 h3 v6 h-3 z M67,44 h2 v6 h-2 z" />
+
+    <!-- cockpit -->
+    <path
+        android:fillColor="#9AD7FF"
+        android:pathData="M54,32 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0" />
+
+    <!-- drill bit -->
+    <path
+        android:fillColor="#C9D1DC"
+        android:pathData="M38,60 h32 l-16,26 z" />
+    <path
+        android:fillColor="#20242B"
+        android:pathData="M38,60 h32 v2 h-32 z" />
+</vector>
