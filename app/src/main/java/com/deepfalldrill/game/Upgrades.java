@@ -56,12 +56,14 @@ public final class Upgrades {
             float base;
             float growth;
             switch (id) {
-                case "phull": base = 80; growth = 1.50f; break;
-                case "pbit": base = 110; growth = 1.52f; break;
-                case "pshield": base = 95; growth = 1.50f; break;
-                case "prefine": base = 100; growth = 1.55f; break;
-                case "pgyro": base = 90; growth = 1.48f; break;
-                case "pboost": base = 100; growth = 1.50f; break;
+                case "phull": base = 150; growth = 1.62f; break;
+                case "pbit": base = 200; growth = 1.68f; break;
+                case "pshield": base = 180; growth = 1.65f; break;
+                case "prefine": base = 190; growth = 1.66f; break;
+                case "pgyro": base = 170; growth = 1.62f; break;
+                case "pboost": base = 200; growth = 1.66f; break;
+                case "pmagnet": base = 180; growth = 1.60f; break;
+                case "pfuel": base = 160; growth = 1.60f; break;
                 default: base = 85; growth = 1.45f; break;
             }
             return Math.round((base * (float) Math.pow(growth, level)) / 5f) * 5;
@@ -93,27 +95,37 @@ public final class Upgrades {
                         s.boostCapacity += 0.6f;
                         s.boostPower *= 1.12f;
                     }),
+            new RunUpgrade("fuel", "Fuel Sipper", "+25% booster recharge", "common", 3, 0f,
+                    (s, r) -> s.boostRechargeMul *= 1.25f),
+            new RunUpgrade("blastsuit", "Blast Suit", "-25% lava damage", "uncommon", 3, 0f,
+                    (s, r) -> s.lavaResist = Math.min(0.8f, s.lavaResist + 0.25f)),
+            new RunUpgrade("shock", "Shock Plates", "-0.5s mine stun", "common", 2, 0f,
+                    (s, r) -> s.stunResist += 0.5f),
             new RunUpgrade("repair", "Emergency Repair", "Repair 45 hull immediately", "rare", 99, 45f,
                     (s, r) -> {
                     }),
     };
 
     public static final PermUpgrade[] PERM = new PermUpgrade[]{
-            new PermUpgrade("phull", "Reinforced Hull", "+10 starting hull per level", 10,
+            new PermUpgrade("phull", "Reinforced Hull", "+10 starting hull per level", 12,
                     (s, l) -> s.maxHp += 10f * l),
-            new PermUpgrade("pbit", "Tungsten Bit", "+7% dig power per level", 8,
+            new PermUpgrade("pbit", "Tungsten Bit", "+7% dig power per level", 10,
                     (s, l) -> s.digPower *= 1f + 0.07f * l),
-            new PermUpgrade("pshield", "Blast Shield", "-6% mine damage per level", 8,
+            new PermUpgrade("pshield", "Blast Shield", "-6% mine damage per level", 10,
                     (s, l) -> s.mineResist = Math.min(0.7f, s.mineResist + 0.06f * l)),
-            new PermUpgrade("prefine", "Ore Refinery", "+9% ore value per level", 8,
+            new PermUpgrade("prefine", "Ore Refinery", "+9% ore value per level", 10,
                     (s, l) -> s.oreMul *= 1f + 0.09f * l),
-            new PermUpgrade("pgyro", "Stabilizers", "+6% steering authority per level", 8,
+            new PermUpgrade("pgyro", "Stabilizers", "+6% steering authority per level", 10,
                     (s, l) -> s.steerMul *= 1f + 0.06f * l),
-            new PermUpgrade("pboost", "Thruster Tuning", "+0.15s tank and +8% thrust per level", 8,
+            new PermUpgrade("pboost", "Thruster Tuning", "+0.15s tank and +8% thrust per level", 10,
                     (s, l) -> {
                         s.boostCapacity += 0.15f * l;
                         s.boostPower *= 1f + 0.08f * l;
                     }),
+            new PermUpgrade("pmagnet", "Ore Magnet", "+0.6 magnet radius per level", 8,
+                    (s, l) -> s.magnet += 0.6f * l),
+            new PermUpgrade("pfuel", "Fuel Cells", "+8% booster recharge per level", 10,
+                    (s, l) -> s.boostRechargeMul *= 1f + 0.08f * l),
     };
 
     public static RunUpgrade runById(String id) {

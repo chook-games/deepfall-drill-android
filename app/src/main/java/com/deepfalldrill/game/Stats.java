@@ -15,4 +15,6 @@ public final class Stats {
     public float fallMul = 1f;
     public float boostCapacity = Config.BOOST_CAPACITY;
     public float boostPower = Config.BOOST_POWER;
+    public float boostRechargeMul = 1f;
+    public float stunResist;
 }

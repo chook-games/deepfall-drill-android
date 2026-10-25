@@ -14,11 +14,11 @@ public final class Mines {
         public float y;
         public float phase;
         public float fuse = -1f;
+        public float size = 1f;
         public boolean armed;
         public boolean dead;
     }
 
-    private static final float TRIGGER = 2.4f;
     private static final float ARM = 22f;
 
     public final ArrayList<Mine> list = new ArrayList<>();
@@ -31,8 +31,9 @@ public final class Mines {
     public void addChunk(Terrain.Chunk c) {
         for (int[] m : c.mines) {
             Mine mine = new Mine();
-            mine.x = m[0] + 0.5f;
-            mine.y = m[1] + 0.5f;
+            mine.size = m.length > 2 ? m[2] : 1;
+            mine.x = m[0] + mine.size / 2f;
+            mine.y = m[1] + mine.size / 2f;
             mine.phase = (float) (Math.random() * Math.PI * 2);
             list.add(mine);
         }
@@ -61,7 +62,8 @@ public final class Mines {
             float dy = m.y - drill.y;
             float dist = (float) Math.hypot(dx, dy);
             m.armed = dist < ARM;
-            if (dist < TRIGGER) m.fuse = 0.12f;
+            float trigger = 1.4f + m.size * 0.8f;
+            if (dist < trigger) m.fuse = 0.12f;
         }
     }
 
@@ -70,7 +72,7 @@ public final class Mines {
         mine.dead = true;
         float x = mine.x;
         float y = mine.y;
-        float r = Config.MINE_RADIUS;
+        float r = Config.MINE_RADIUS + (mine.size - 1f) * 1.5f;
         float r2 = r * r;
 
         for (int cy = (int) Math.floor(y - r); cy <= (int) Math.floor(y + r); cy++) {

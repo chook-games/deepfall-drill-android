@@ -72,6 +72,7 @@ public final class WorldRenderer {
             drawLiquids(c, g, w, ppc, anchor, camY, shx, shy, top, bottom, time);
             drawDepthMarks(c, w, h, ppc, anchor, camY, shx, shy, top);
             drawMines(c, g, w, ppc, anchor, camY, shx, shy, time);
+            drawPickups(c, g, w, ppc, anchor, camY, shx, shy, time);
             if (g.state == Game.SURFACE) drawPlatform(c, g, w, ppc, anchor, camY, shx, shy);
             drawDrill(c, g, w, ppc, anchor, camY, shx, shy, time);
             drawParticles(c, g, w, ppc, anchor, camY, shx, shy);
@@ -296,6 +297,11 @@ public final class WorldRenderer {
         }
 
         if (m.ore) {
+            // A mineral tint links the dense core and its scattered pixel rim.
+            k.fill.setColor(m.accent);
+            k.fill.setAlpha(42);
+            c.drawRect(left, top, left + size, top + size, k.fill);
+            k.fill.setAlpha(255);
             float fleck = Math.max(1.5f, ppc * 0.14f);
             for (int i = 0; i < 3; i++) {
                 float a = Rng.hash2f(x * 3 + i, y, 77);
@@ -374,6 +380,14 @@ public final class WorldRenderer {
 
             c.save();
             c.translate(px, py);
+            // One single mine object covers exactly two by two terrain cells.
+            float footprint = ppc * m.size;
+            k.rect(c, -footprint / 2f, -footprint / 2f,
+                    footprint / 2f, footprint / 2f, 0xF020242C, 2f);
+            k.outline(c, -footprint / 2f, -footprint / 2f,
+                    footprint / 2f, footprint / 2f,
+                    blink ? 0xFFFF5747 : 0xFFA28B52, 0.7f, 2f);
+            c.scale(m.size, m.size);
             k.line.setColor(0xFF23262C);
             k.line.setStrokeWidth(Math.max(2f, ppc * 0.12f));
             for (int i = 0; i < 6; i++) {
@@ -417,6 +431,29 @@ public final class WorldRenderer {
         k.outline(c, cx - half, top, cx + half, top + thick, 0x66000000, 1.2f, 0f);
     }
 
+    private void drawPickups(Canvas c, Game g, int w, float ppc, float anchor,
+                             float camY, float shx, float shy, float time) {
+        String[] symbols = {"B", "+", ">>", "M", "S"};
+        for (Pickups.Pickup pickup : g.pickups.list) {
+            float x = w / 2f + pickup.x * ppc + shx;
+            float y = anchor + (pickup.y - camY) * ppc + shy;
+            if (y < -80f || y > g.height + 80f) continue;
+            int color = Pickups.color(pickup.kind);
+            float pulse = 1f + 0.12f * (float) Math.sin(time * 4f + pickup.phase);
+            k.fill.setColor(color);
+            k.fill.setAlpha(42);
+            c.drawCircle(x, y, ppc * 1.6f * pulse, k.fill);
+            k.fill.setAlpha(255);
+            k.rect(c, x - ppc, y - ppc, x + ppc, y + ppc, 0xF010151E, 3f);
+            k.outline(c, x - ppc, y - ppc, x + ppc, y + ppc, color, 0.8f, 3f);
+            k.text.setTypeface(k.bold);
+            k.text.setColor(color);
+            k.text.setTextSize(ppc * 1.1f);
+            k.text.setTextAlign(Paint.Align.CENTER);
+            c.drawText(symbols[pickup.kind], x, y + ppc * 0.38f, k.text);
+        }
+    }
+
     private void drawDrill(Canvas c, Game g, int w, float ppc, float anchor, float camY,
                            float shx, float shy, float time) {
         Drill d = g.drill;
@@ -427,6 +464,14 @@ public final class WorldRenderer {
         c.save();
         c.translate(px, py);
         c.rotate((float) Math.toDegrees(d.angle));
+
+        if (d.armorBonus > 0f) {
+            k.line.setStyle(Paint.Style.STROKE);
+            k.line.setColor(0xCC6FA8FF);
+            k.line.setStrokeWidth(ppc * 0.12f);
+            c.drawCircle(0, 0, ppc * 2.2f, k.line);
+            k.line.setStyle(Paint.Style.FILL);
+        }
 
         float bw = ppc * 2.3f;
         float bh = ppc * 2.6f;
@@ -613,6 +658,16 @@ public final class WorldRenderer {
                 8f, 0xFF8B95A6, Paint.Align.LEFT, true);
 
         // ------------------------------------------------ reverse thruster button
+        if (g.overdriveTimer > 0f) {
+            k.spaced(c, "OVERDRIVE " + (int) Math.ceil(g.overdriveTimer) + "s",
+                    u * 16f, h - safeBottom - u * 58f, 9f,
+                    0xFFFFA03A, Paint.Align.LEFT, true, 0.12f);
+        }
+        if (g.armorTimer > 0f) {
+            k.spaced(c, "SHIELD " + (int) Math.ceil(g.armorTimer) + "s",
+                    u * 16f, h - safeBottom - u * 38f, 9f,
+                    0xFF6FA8FF, Paint.Align.LEFT, true, 0.12f);
+        }
         float cap = g.run.stats.boostCapacity;
         float frac = cap > 0.001f ? Config.clamp(g.boostFuel / cap, 0f, 1f) : 0f;
         boolean stunned = g.drill.stunTimer > 0f;

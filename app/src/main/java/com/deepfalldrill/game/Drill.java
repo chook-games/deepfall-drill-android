@@ -43,6 +43,8 @@ public final class Drill {
     public boolean thrusting;
     public float thrustPower = Config.BOOST_POWER;
     public float stunTimer;
+    public float digBoost = 1f;
+    public float armorBonus;
     public float contactTimer;
     public float impactTimer;
     public int digCount;
@@ -86,6 +88,8 @@ public final class Drill {
         this.wallContact = false;
         this.thrusting = false;
         this.stunTimer = 0f;
+        this.digBoost = 1f;
+        this.armorBonus = 0f;
     }
 
     public void setStats(Stats s) {
@@ -100,6 +104,7 @@ public final class Drill {
 
     public void applyDamage(float amount, String source) {
         if (dead || amount <= 0f) return;
+        amount *= Math.max(0f, 1f - armorBonus);
         hp = Math.max(0f, hp - amount);
         if (onDamage != null) onDamage.onDamage(amount, source);
         if (hp <= 0f) dead = true;
@@ -111,7 +116,7 @@ public final class Drill {
         float depthPenalty = 1f + Math.max(0f, y) / Config.DEPTH_HARDNESS;
         float hardness = Math.max(0.05f, m.hardness * depthPenalty);
         float power = stats != null ? stats.digPower : 1f;
-        return Math.max(Config.DIG_MIN, (Config.DIG_BASE / hardness) * power);
+        return Math.max(Config.DIG_MIN, (Config.DIG_BASE / hardness) * power * digBoost);
     }
 
     public void update(float dt, float steerInput) {
@@ -329,7 +334,7 @@ public final class Drill {
         }
 
         float power = stats != null ? stats.digPower : 1f;
-        digEnergy = Math.min(3f, digEnergy + dt * Config.DIG_BASE * power);
+        digEnergy = Math.min(3f, digEnergy + dt * Config.DIG_BASE * power * digBoost);
         boolean dug = false;
         int guard = 0;
         while (digEnergy > 0f && guard++ < 10 && dugThisFrame < 14) {

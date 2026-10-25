@@ -415,7 +415,7 @@ public final class UiRenderer {
 
         float listTop = y + u * 52f;
         float listBottom = pb - u * 76f;
-        float rowH = (listBottom - listTop) / 6f;
+        float rowH = (listBottom - listTop) / Upgrades.PERM.length;
         float ry = listTop;
         for (Upgrades.PermUpgrade up : Upgrades.PERM) {
             permRow(c, g, up, x, ry, cw, rowH - u * 6f);

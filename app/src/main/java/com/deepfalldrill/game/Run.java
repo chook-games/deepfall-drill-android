@@ -96,6 +96,7 @@ public final class Run {
         dst.digPower = src.digPower;
         dst.steerMul = src.steerMul;
         dst.armor = src.armor;
+        dst.mineResist = src.mineResist;
         dst.lavaResist = src.lavaResist;
         dst.oreMul = src.oreMul;
         dst.xpMul = src.xpMul;
@@ -103,6 +104,8 @@ public final class Run {
         dst.fallMul = src.fallMul;
         dst.boostCapacity = src.boostCapacity;
         dst.boostPower = src.boostPower;
+        dst.boostRechargeMul = src.boostRechargeMul;
+        dst.stunResist = src.stunResist;
     }
 
     public OreGain addOre(int material) {

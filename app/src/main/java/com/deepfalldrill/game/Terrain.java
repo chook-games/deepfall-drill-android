@@ -21,6 +21,7 @@ public final class Terrain {
         public final int cy;
         public final byte[] cells = new byte[Config.CHUNK * Config.CHUNK];
         public final ArrayList<int[]> mines = new ArrayList<>();
+        public final ArrayList<int[]> pickups = new ArrayList<>();
         public boolean room;
         public int version;
         public long uid;

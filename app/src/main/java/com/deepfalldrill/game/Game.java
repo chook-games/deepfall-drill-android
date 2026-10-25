@@ -52,6 +52,9 @@ public final class Game {
     public Terrain terrain;
     public Drill drill;
     public final Mines mines = new Mines();
+    public final Pickups pickups = new Pickups();
+    public float overdriveTimer;
+    public float armorTimer;
     public final Particles particles = new Particles();
     public Run run;
     public int seed;
@@ -131,6 +134,7 @@ public final class Game {
         this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
         this.sfx = new Sfx(context);
         this.sfx.setEnabled(save.sound);
+        pickups.onCollect = this::collectPickup;
         this.mines.onExplode = (x, y, r) -> {
             addShake(0.8f);
             flash = Math.min(1f, flash + 0.7f);
@@ -428,8 +432,14 @@ public final class Game {
         seed = newSeed;
         particles.clear();
         mines.reset();
+        pickups.reset();
+        overdriveTimer = 0f;
+        armorTimer = 0f;
         terrain = new Terrain(new Generator(seed));
-        terrain.onChunk = c -> mines.addChunk(c);
+        terrain.onChunk = c -> {
+            mines.addChunk(c);
+            pickups.addChunk(c);
+        };
         terrain.onReaction = (x, y, kind) -> {
             if ("steam".equals(kind)) {
                 particles.burst(x + 0.5f, y + 0.5f, 5, Particles.SMOKE, 0xFFCFD6DF, 7.5f, 0.8f, 0.55f, -9f);
@@ -484,7 +494,7 @@ public final class Game {
             if (amount <= 0f) return;
             damageFlash = 1f;
             if ("mine".equals(source)) {
-                drill.stunTimer = Config.MINE_STUN;
+                drill.stunTimer = Math.max(0.3f, Config.MINE_STUN - run.stats.stunResist);
                 addShake(0.5f);
             }
             if ("lava".equals(source)) vibrate(30);
@@ -505,6 +515,7 @@ public final class Game {
         int py = (int) Math.floor(drill.y);
         terrain.clearPocket(px, py, 7f);
         mines.clearNear(px, py, 18f);
+        pickups.clearNear(px, py, 18f);
         drill.vx = 0f;
         drill.vy = 2f;
         camY = drill.y;
@@ -529,8 +540,57 @@ public final class Game {
         }
     }
 
+    private void collectPickup(int kind, float x, float y) {
+        int color = Pickups.color(kind);
+        switch (kind) {
+            case Pickups.BOOST:
+                boostFuel = run.stats.boostCapacity;
+                toast("BOOST REFILLED");
+                break;
+            case Pickups.REPAIR:
+                drill.hp = Math.min(drill.maxHp, drill.hp + 25f);
+                toast("HULL +25");
+                break;
+            case Pickups.OVERDRIVE:
+                overdriveTimer = 8f;
+                drill.digBoost = 1.45f;
+                toast("OVERDRIVE - 8s");
+                break;
+            case Pickups.MAGNET:
+                int earned = 0;
+                int cx = (int) Math.floor(x);
+                int cy = (int) Math.floor(y);
+                for (int dy = -10; dy <= 10; dy++) {
+                    for (int dx = -10; dx <= 10; dx++) {
+                        if (dx * dx + dy * dy > 100) continue;
+                        int material = terrain.get(cx + dx, cy + dy);
+                        if (!Materials.isOre(material)) continue;
+                        terrain.dig(cx + dx, cy + dy);
+                        Run.OreGain gain = run.addOre(material);
+                        if (gain != null) earned += gain.money;
+                    }
+                }
+                toast("ORE PULSE +" + earned);
+                break;
+            case Pickups.ARMOR:
+                armorTimer = 8f;
+                drill.armorBonus = 0.45f;
+                toast("SHIELD - 8s");
+                break;
+            default:
+                return;
+        }
+        particles.burst(x, y, 14, Particles.SPARK, color, 18f, 0.6f, 0.5f, 10f);
+        sfx.play(Sfx.UPGRADE, 0.75f, 1.2f);
+        vibrate(15);
+    }
+
     private void updatePlaying(float dt) {
         steer = computeSteer();
+        overdriveTimer = Math.max(0f, overdriveTimer - dt);
+        armorTimer = Math.max(0f, armorTimer - dt);
+        drill.digBoost = overdriveTimer > 0f ? 1.45f : 1f;
+        drill.armorBonus = armorTimer > 0f ? 0.45f : 0f;
 
         boolean stunned = drill.stunTimer > 0f;
         boolean canBoost = thrustHeld && !stunned && boostFuel > 0.001f;
@@ -548,7 +608,7 @@ public final class Game {
         } else {
             drill.thrusting = false;
             boostFuel = Math.min(run.stats.boostCapacity,
-                    boostFuel + dt * Config.BOOST_RECHARGE);
+                    boostFuel + dt * Config.BOOST_RECHARGE * run.stats.boostRechargeMul);
         }
 
         terrain.ensureAround(drill.x, drill.y, Config.CHUNKS_PER_FRAME);
@@ -556,6 +616,7 @@ public final class Game {
         terrain.cull(drill.y);
         terrain.stepFluids(dt, (int) drill.x, (int) drill.y);
         mines.update(dt, drill, terrain, particles);
+        if (!drill.dead) pickups.update(dt, drill);
         run.update(dt, drill.y);
         particles.update(dt);
 
@@ -569,11 +630,14 @@ public final class Game {
             saveAcc = 0f;
             saveCheckpoint();
         }
+        if (drill.dead) {
+            die();
+            return;
+        }
         if (run.checkMilestone(drill.y)) {
             triggerMilestone();
             return;
         }
-        if (drill.dead) die();
     }
 
     private void updateDying(float dt) {
