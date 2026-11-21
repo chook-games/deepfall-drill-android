@@ -7,6 +7,13 @@ public final class ContentTest {
     }
 
     public static void main(String[] args) {
+        int[] seeds = {0, 1, 35, 123456789, -1, Integer.MIN_VALUE};
+        for (int seed : seeds) {
+            check(Rng.codeToSeed(Rng.toCode(seed)) == seed, "Seed codes round-trip");
+        }
+        check(Rng.dailySeed(20000) == Rng.dailySeed(20000), "Daily seed is stable");
+        check(Rng.dailySeed(20000) != Rng.dailySeed(20001), "Adjacent daily seeds differ");
+
         int mines = 0, cores = 0, powers = 0;
         for (int seed = 1; seed <= 8; seed++) {
             Terrain terrain = new Terrain(new Generator(seed));
@@ -78,8 +85,17 @@ public final class ContentTest {
         check(totalCost > 150000, "Permanent progression must have a meaningful long-term sink");
         SaveData meta = new SaveData();
         meta.perm.put("pshield", 1);
-        Run run = new Run(1, meta, null);
+        Run run = new Run(1, meta, null, false);
         check(run.stats.mineResist > 0f, "Mine resistance survives stat recomputation");
+        meta.unlockedDrills.add("brick");
+        meta.drillId = "brick";
+        SaveData.Checkpoint checkpoint = new SaveData.Checkpoint();
+        checkpoint.seed = 7;
+        checkpoint.drillId = "needle";
+        checkpoint.contractTarget = 150;
+        Run resumed = new Run(7, meta, checkpoint, false);
+        check("needle".equals(resumed.drillId), "Checkpoint retains the run's selected drill");
+        check(resumed.contractReward > 0, "Resumed contracts retain their reward");
         System.out.println("PASS progression: " + totalCost + " ore to buy all permanent levels");
     }
 }

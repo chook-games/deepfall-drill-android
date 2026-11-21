@@ -176,8 +176,13 @@ public final class Upgrades {
     }
 
     public static Stats baseStats(SaveData meta) {
+        return baseStats(meta, meta.drillId);
+    }
+
+    public static Stats baseStats(SaveData meta, String drillId) {
         Stats s = new Stats();
         s.maxHp = Config.START_HP + (Math.max(1, meta.level) - 1) * 3f;
+        Drills.applyStats(s, drillId);
         for (PermUpgrade u : PERM) {
             int lvl = Math.min(u.max, meta.perm.getOrDefault(u.id, 0));
             if (lvl > 0) u.effect.apply(s, lvl);

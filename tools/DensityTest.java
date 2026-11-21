@@ -5,7 +5,7 @@ public final class DensityTest {
     public static void main(String[] args) {
         int seed = args.length > 0 ? Integer.parseInt(args[0]) : 0x51EED;
         Terrain terrain = new Terrain(new Generator(seed));
-        int[] depths = {20, 120, 300, 600, 1200, 2000};
+        int[] depths = {20, 120, 300, 600, 1200, 2000, 3600, 7200, 12000};
         for (int depth : depths) {
             int[] counts = new int[Materials.ALL.length];
             int total = 0;

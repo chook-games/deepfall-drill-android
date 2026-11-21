@@ -24,6 +24,10 @@ Android build with the requested changes:
 - **Deeper drill on screen.** The drill sits at 59% of the screen height.
 - **No heat.** Heat is gone from the HUD and from gameplay. The hull drops only
   from lava and mines; falling does not hurt in the MVP.
+- **Run-to-run goals.** Daily shared seeds, contracts, three unlockable drill
+  hulls, depth salvage, and a workshop give every descent a longer-term payoff.
+- **Rising depth pressure.** Basalt, mine density and lava pockets become more
+  threatening as the run descends; deep ore also becomes more valuable.
 - **Procedural sound.** Dig, impact, ore, gems, lava, mines, upgrades, UI and
   death are synthesized at startup; no audio assets in the APK. Toggle in
   Settings.
@@ -59,9 +63,11 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 
 ## Play Store release
 
+Full Play Console walkthrough: **`PLAY_STORE_GUIDE.md`**.
+
 The release build is configured for Play: R8 + resource shrinking, version
-1.0.0, targetSdk 36, adaptive icon + monochrome layer, and signing through an
-upload key that is **not** in the project.
+1.2.0 (versionCode 3), targetSdk 36, adaptive icon + monochrome layer, and
+signing through an upload key that is **not** in the project.
 
 1. **Create the upload key once** (already done on this machine):
 
@@ -94,11 +100,12 @@ Console.
 - `store/listing.md` — descriptions, category, data-safety answers, checklist
 - `store/icon-512.png` — 512×512 listing icon
 - `store/feature-graphic-1024x500.png` — feature graphic
-- `store/screenshots/phone-01..04.png` — 1080×1920 (9:16) phone screenshots
+- `store/screenshots/phone-01..04.png` — replace the older captures with genuine
+  1.2.0 screenshots before upload
 
 6. Privacy policy: `PRIVACY.md`. Host it publicly (GitHub Pages is fine) and
-   paste the URL into Play Console. The game collects no data, has no internet
-   permission, no ads and no in-app purchases.
+   paste the URL into Play Console. Progress stays local; run sharing only opens
+   Android's share sheet after the player taps Share. No ads or IAPs.
 
 ## Fast build script (aapt2, no Gradle)
 
@@ -175,12 +182,13 @@ All values live in `app/src/main/java/com/deepfalldrill/game/Config.java`.
 | Steering | 25.5 cells/s, response 54 ground / 13.2 air |
 | Dig base | 54, min 3 cells/s |
 | Impact | threshold 42 cells/s; FX only, no hull damage in MVP |
-| Lava | 7 entry, 13/s |
-| Mine | 24 damage, radius 7 cells, starts at 270 cells (45 m) |
+| Lava | 10 entry, 18/s |
+| Mine | 24 base damage, up to 8.5-cell blast radius, starts at 270 cells (45 m) |
+| Pressure curve | Mine/lava spawn odds rise with depth; basalt becomes more common |
 | Milestone | 250 m |
 | Heat | none (removed from HUD and gameplay) |
 
-One cell = 0.5 m. The HUD shows vertical metres drilled.
+One cell = 1/6 m. The HUD shows vertical metres drilled.
 
 ## Project map
 
@@ -227,7 +235,7 @@ tools/build-release.ps1   signed AAB + release APK for Play
 store/                    Play listing kit (icon, graphic, screenshots, copy)
 ```
 
-Every file is under 900 lines. The render thread owns all game state; touch and
+Every source file is under 1,000 lines. The render thread owns all game state; touch and
 sensor input are queued so the loop never locks.
 
 ## Save model
@@ -235,8 +243,10 @@ sensor input are queued so the loop never locks.
 `SharedPreferences("deepfall")` → key `save_v1`, one JSON string:
 
 - money, xp, level, bestDepth, bestScore, totalOre, runs, deaths
-- perm levels, steering mode, vibration, reduce-effects
-- checkpoint: seed, x, depth, hp, run money/xp/ores, upgrades, milestone
+- perm levels, steering mode, vibration, reduce-effects, selected/unlocked drills
+- daily bests and dates
+- checkpoint: seed, x, depth, hp, run money/xp/ores, upgrades, milestone,
+  contract state and drill hull
 - lastRun summary
 
 Checkpoints are written every 15 s, on pause, on quit and at every milestone.
@@ -265,10 +275,14 @@ On the 1080×2400 emulator (API 36), with screenshots in `screenshots/`:
 - headless drilling test (`tools/DrillTest.java`) verifies collision, no
   ghosting, no self-damage while digging and a stable descent rate
 - material density verified off-device with `tools/density.ps1`
-- signed release AAB + APK built with the upload key, R8 and resource shrinking
-- release APK tested on the emulator (no R8 regressions, sounds load)
+- signed 1.2.0 release AAB + APK built with the upload key, R8 and resource shrinking
+- release APK updated over the existing emulator install; save data remained intact
+- 1.2.0 store screenshots recaptured from genuine emulator screens
+- headless 24-seed first-run balance sample: all reached 100 m; 10 reached 250 m,
+  with deterministic run contracts and depth salvage awarding banked progression
 - predictive back verified: run -> pause -> menu -> exit
-- store kit generated in `store/` (icon, feature graphic, 4 screenshots, listing copy)
+- store kit in `store/` (icon, feature graphic, refreshed 1.2.0 screenshots,
+  listing copy)
 
 Install with `build.ps1 -Install -Run`, or open the project in Android Studio and press Run.
 
@@ -277,17 +291,21 @@ Install with `build.ps1 -Install -Run`, or open the project in Android Studio an
 `tools/density.ps1` compiles the generator on the desktop JVM and samples
 240 rows per depth (percentages of all cells; air omitted):
 
-| Depth | Air | Dirt | Stone | Basalt | Ore | Lava |
-| --- | --- | --- | --- | --- | --- | --- |
-| 3 m | 0% | 58.6% | 36.9% | 0% | 0.3% | 0% |
-| 20 m | 0% | 42.9% | 52.4% | 0% | 0.5% | 0% |
-| 50 m | 0% | 40.4% | 53.9% | 0.8% | 0.5% | 0% |
-| 100 m | 0% | 17.6% | 65.5% | 11.6% | 0.7% | 0.2% |
-| 200 m | 0% | 19.3% | 58.2% | 17.0% | 1.0% | 0.3% |
-| 333 m | 0% | 0% | 43.9% | 50.5% | 1.1% | 0.3% |
+| Depth | Dirt | Stone | Basalt | Ore | Lava |
+| --- | --- | --- | --- | --- | --- |
+| 3 m | 57.9% | 36.4% | 0% | 1.6% | 0% |
+| 20 m | 42.7% | 52.0% | 0% | 1.1% | 0% |
+| 50 m | 40.1% | 53.8% | 0.8% | 1.0% | 0% |
+| 100 m | 17.6% | 68.6% | 8.0% | 1.4% | 0.2% |
+| 200 m | 19.2% | 64.8% | 9.6% | 2.2% | 0% |
+| 333 m | 0% | 49.6% | 44.6% | 1.6% | 0% |
+| 600 m | 0% | 35.7% | 58.0% | 1.9% | 0.2% |
+| 1,200 m | 0% | 21.6% | 72.0% | 2.1% | 0.2% |
+| 2,000 m | 0% | 12.2% | 81.0% | 2.3% | 0.3% |
 
-Bedrock walls are 4.2% of every sample (2 of 48 columns). Air is 0%: the map is
-fully solid apart from the player's tunnel and explosion craters.
+Bedrock walls are 4.2% of each sample (2 of 48 columns). Air is 0%: the map is
+solid apart from the player's tunnel and explosion craters. The material curve
+keeps raising basalt pressure beyond the first few hundred metres.
 
 ## Known limitations / next
 
@@ -295,7 +313,6 @@ fully solid apart from the player's tunnel and explosion craters.
   prototype).
 - No music yet; all effects are procedural.
 - Falling does not damage the hull in this MVP. Only lava and mines do.
-- Campaign modes, more hazards (falling rocks, gas), sprite art and a release
-  signing config are next.
+- Campaign modes, more hazards (falling rocks, gas) and sprite art are future work.
 - Tilt can be inverted on some devices only if the accelerometer axes are
   remapped by the OEM; the mode is easy to flip in `GameView.onSensorChanged`.

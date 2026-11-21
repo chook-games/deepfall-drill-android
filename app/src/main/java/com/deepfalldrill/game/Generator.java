@@ -48,13 +48,11 @@ public final class Generator {
         } else if (d < 3300) {
             mat = strata < 0.5f ? Materials.BASALT : Materials.STONE;
         } else {
-            mat = strata < 0.68f ? Materials.BASALT : Materials.STONE;
+            float deepPressure = 1f - (float) Math.exp(-(d - 3300f) / 8000f);
+            float basaltChance = 0.54f + 0.20f * deepPressure;
+            mat = strata < basaltChance ? Materials.BASALT : Materials.STONE;
         }
 
-        if (d > 720 && mat == Materials.STONE
-                && Rng.ridged(seed + 66, x * 0.25f, y * 0.1f, 2) > 0.75f) {
-            mat = Materials.BASALT;
-        }
         return mat;
     }
 
@@ -146,8 +144,10 @@ public final class Generator {
         if (by + Config.CHUNK / 2 < 420) return;
 
         Random rng = new Random(Rng.hash2u(c.cx, c.cy, seed ^ 0x1A7A));
-        float t = Math.min(1f, (by + 16 - 420) / 3000f);
-        if (rng.nextFloat() > 0.25f + t * 0.15f) return;
+        float depthPastStart = Math.max(0f, by + 16 - 420f);
+        float progression = 1f - (float) Math.exp(-depthPastStart / 4200f);
+        float blobChance = 0.13f + progression * 0.24f;
+        if (rng.nextFloat() > blobChance) return;
 
         int bw = 2 + rng.nextInt(2); // 2..3
         int bh = 3 + rng.nextInt(2); // 3..4 -> 6..12 cells
@@ -176,10 +176,11 @@ public final class Generator {
         if (depth < Config.MINE_START_DEPTH) return;
 
         Random rng = new Random(Rng.hash2u(c.cx, c.cy, seed ^ 0x5151));
-        float t = Math.min(1f, (depth - Config.MINE_START_DEPTH) / 2700f);
+        float depthPastStart = Math.max(0f, depth - Config.MINE_START_DEPTH);
+        float progression = 1f - (float) Math.exp(-depthPastStart / 3600f);
         int count = 0;
-        if (rng.nextFloat() < 0.35f + t * 0.35f) count = 1;
-        if (rng.nextFloat() < t * 0.25f) count++;
+        if (rng.nextFloat() < 0.18f + progression * 0.70f) count = 1;
+        if (rng.nextFloat() < 0.02f + progression * 0.22f) count++;
 
         for (int i = 0; i < count; i++) {
             for (int attempt = 0; attempt < 28; attempt++) {

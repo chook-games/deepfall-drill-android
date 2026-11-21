@@ -201,7 +201,13 @@ public final class UiRenderer {
         statBox(c, x + (sw + gap) * 2f, statsY, sw, u * 62f, String.valueOf(g.save.level), "LEVEL");
 
         float y = statsY + u * 78f;
-        btn(c, g, "play", "PLAY", x, y, cw, u * 54f, 0);
+        float actionGap = u * 8f;
+        float playW = (cw - actionGap) * 0.64f;
+        btn(c, g, "play", "PLAY", x, y, playW, u * 54f, 0);
+        String dailyLabel = g.dailyIsToday()
+                ? "DAILY " + g.save.dailyBestDepth + " m" : "DAILY RUN";
+        btn(c, g, "daily", dailyLabel, x + playW + actionGap, y,
+                cw - playW - actionGap, u * 54f, 3);
         y += u * 66f;
 
         if (g.save.checkpoint != null) {
@@ -214,7 +220,7 @@ public final class UiRenderer {
         btn(c, g, "hub", "WORKSHOP", x, y, half, u * 50f, 1);
         btn(c, g, "settings", "SETTINGS", x + half + u * 8f, y, half, u * 50f, 1);
 
-        k.spaced(c, "v0.1 · NATIVE ENDLESS", w / 2f, h - safeBottom - u * 22f, 8f,
+        k.spaced(c, "DAILY · CONTRACTS · OFFLINE", w / 2f, h - safeBottom - u * 22f, 8f,
                 0x44FFFFFF, Paint.Align.CENTER, true, 0.22f);
     }
 
@@ -365,6 +371,8 @@ public final class UiRenderer {
         String joke = (g.deathJoke == null || g.deathJoke.isEmpty()) ? "DRILL LOST" : g.deathJoke;
         k.txt(c, joke, x, y + u * 28f, joke.length() > 18 ? 19f : 24f, TEXT,
                 Paint.Align.LEFT, true);
+        k.txt(c, "CRASHED INTO " + g.lastDeathCause.toUpperCase(), x, y + u * 46f,
+                9f, MUTED, Paint.Align.LEFT, true);
 
         k.shadowText(c, String.valueOf(s.depthMeters), w / 2f, y + u * 84f, 56f, AMBER,
                 Paint.Align.CENTER, true, 8f, 0x553A1E04);
@@ -373,7 +381,7 @@ public final class UiRenderer {
         float gy = y + u * 96f;
         float gap = u * 8f;
         float sw = (cw - gap) / 2f;
-        statBox(c, x, gy, sw, u * 54f, String.valueOf(s.money), "ORE");
+        statBox(c, x, gy, sw, u * 54f, String.valueOf(s.money), "ORE + SALVAGE");
         statBox(c, x + sw + gap, gy, sw, u * 54f, String.valueOf(s.xp), "XP");
         statBox(c, x, gy + u * 62f, sw, u * 54f, String.valueOf(s.oreCount), "ORE FOUND");
         statBox(c, x + sw + gap, gy + u * 62f, sw, u * 54f, String.valueOf(s.score), "SCORE");
@@ -381,6 +389,9 @@ public final class UiRenderer {
         float ny = gy + u * 128f;
         if (g.lastNewBest) {
             k.spaced(c, "NEW BEST DEPTH", w / 2f, ny, 9.5f, AMBER, Paint.Align.CENTER, true, 0.22f);
+        } else if (g.lastGapToBest > 0) {
+            k.spaced(c, g.lastGapToBest + " m SHORT OF BEST", w / 2f, ny,
+                    9f, MUTED, Paint.Align.CENTER, true, 0.16f);
         }
         if (g.lastLevelUps != null && !g.lastLevelUps.isEmpty()) {
             k.spaced(c, "LEVEL UP  " + g.lastLevelUps.get(g.lastLevelUps.size() - 1), w / 2f,
@@ -388,8 +399,11 @@ public final class UiRenderer {
         }
 
         float by = pt + ph - u * 138f;
-        btn(c, g, "retry", "DIVE AGAIN", x, by, cw, u * 54f, 0);
-        btn(c, g, "menu", "MENU", x, by + u * 62f, cw, u * 48f, 1);
+        btn(c, g, "retry", "DIVE AGAIN", x, by, cw, u * 50f, 0);
+        float smallGap = u * 8f;
+        float smallW = (cw - smallGap) / 2f;
+        btn(c, g, "share", "SHARE", x, by + u * 58f, smallW, u * 44f, 1);
+        btn(c, g, "menu", "MENU", x + smallW + smallGap, by + u * 58f, smallW, u * 44f, 1);
     }
 
     // ------------------------------------------------------------- workshop
@@ -413,8 +427,9 @@ public final class UiRenderer {
         k.txt(c, "Permanent upgrades. They survive every drill.", x, y + u * 40f, 10.5f,
                 MUTED, Paint.Align.LEFT, false);
 
-        float listTop = y + u * 52f;
+        float listTop = y + u * 100f;
         float listBottom = pb - u * 76f;
+        drawDrillSelector(c, g, x, y + u * 54f, cw, u * 38f);
         float rowH = (listBottom - listTop) / Upgrades.PERM.length;
         float ry = listTop;
         for (Upgrades.PermUpgrade up : Upgrades.PERM) {
@@ -423,6 +438,27 @@ public final class UiRenderer {
         }
 
         btn(c, g, "back", "BACK", x, pb - u * 64f, cw, u * 52f, 0);
+    }
+
+    private void drawDrillSelector(Canvas c, Game g, float l, float t, float w, float h) {
+        float gap = k.px(5f);
+        float itemW = (w - gap * (Drills.ALL.length - 1)) / Drills.ALL.length;
+        for (int i = 0; i < Drills.ALL.length; i++) {
+            Drills.D drill = Drills.ALL[i];
+            float x = l + i * (itemW + gap);
+            boolean selected = drill.id.equals(g.save.drillId);
+            boolean unlocked = Drills.isUnlocked(g.save, drill.id);
+            int color = selected ? 0xFFFFB03A : (unlocked ? 0xFFCFD8E6 : MUTED);
+            k.rect(c, x, t, x + itemW, t + h, selected ? 0x24FFB03A : 0x0DFFFFFF, 9f);
+            k.outline(c, x, t, x + itemW, t + h,
+                    selected ? 0x88FFB03A : 0x18FFFFFF, 1f, 9f);
+            String label = unlocked ? drill.name.toUpperCase() : drill.cost + " ORE";
+            k.txt(c, label, x + itemW / 2f, t + h * 0.46f, 8.5f, color,
+                    Paint.Align.CENTER, true);
+            k.txt(c, selected ? "SELECTED" : (unlocked ? drill.desc : "UNLOCK"),
+                    x + itemW / 2f, t + h * 0.78f, 6.5f, MUTED, Paint.Align.CENTER, false);
+            g.addHit("drill:" + drill.id, x, t, x + itemW, t + h);
+        }
     }
 
     private void permRow(Canvas c, Game g, Upgrades.PermUpgrade up,
@@ -466,7 +502,7 @@ public final class UiRenderer {
         k.dim(c);
         float u = k.u;
         float pw = Math.min(w - u * 28f, u * 390f);
-        float ph = u * 462f;
+        float ph = u * 520f;
         float pl = (w - pw) / 2f;
         float pt = Math.max(safeTop + u * 10f, (h - ph) / 2f);
         k.panel(c, pl, pt, pl + pw, pt + ph);
@@ -485,8 +521,9 @@ public final class UiRenderer {
         toggle(c, g, "toggle_fx", "REDUCE EFFECTS", g.save.reduceFx, x, ty + u * 92f, cw);
 
         k.spaced(c, "DATA", x, ty + u * 150f, 8f, MUTED, Paint.Align.LEFT, true, 0.2f);
+        btn(c, g, "play_seed", "PLAY A SHARED SEED", x, ty + u * 158f, cw, u * 42f, 3);
         String resetLabel = g.resetConfirmTimer > 0f ? "CONFIRM RESET" : "RESET PROGRESS";
-        btn(c, g, "reset", resetLabel, x, ty + u * 158f, cw, u * 46f, 2);
+        btn(c, g, "reset", resetLabel, x, ty + u * 206f, cw, u * 46f, 2);
 
         btn(c, g, "back", "BACK", x, pt + ph - u * 72f, cw, u * 52f, 0);
     }

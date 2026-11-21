@@ -3,10 +3,12 @@ package com.deepfalldrill.game;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,11 @@ public final class SaveData {
     public boolean vibrate = true;
     public boolean reduceFx = false;
     public boolean sound = true;
+    public String drillId = "standard";
+    public final HashSet<String> unlockedDrills = new HashSet<>();
+    public String dailyDate = "";
+    public int dailyBestDepth;
+    public int dailyBestScore;
     public Checkpoint checkpoint;
     public JSONObject lastRun;
 
@@ -42,6 +49,12 @@ public final class SaveData {
         public int xpEarned;
         public int oreCount;
         public int milestone;
+        public String drillId = "standard";
+        public boolean daily;
+        public int contractType;
+        public int contractTarget;
+        public int contractProgress;
+        public boolean contractDone;
         public final HashMap<Integer, Integer> ores = new HashMap<>();
         public final HashMap<String, Integer> upgrades = new HashMap<>();
 
@@ -56,6 +69,12 @@ public final class SaveData {
             o.put("xpEarned", xpEarned);
             o.put("oreCount", oreCount);
             o.put("milestone", milestone);
+            o.put("drillId", drillId);
+            o.put("daily", daily);
+            o.put("contractType", contractType);
+            o.put("contractTarget", contractTarget);
+            o.put("contractProgress", contractProgress);
+            o.put("contractDone", contractDone);
             JSONObject or = new JSONObject();
             for (Map.Entry<Integer, Integer> e : ores.entrySet()) or.put(String.valueOf(e.getKey()), e.getValue());
             o.put("ores", or);
@@ -77,6 +96,12 @@ public final class SaveData {
             c.xpEarned = o.optInt("xpEarned", 0);
             c.oreCount = o.optInt("oreCount", 0);
             c.milestone = o.optInt("milestone", 0);
+            c.drillId = o.optString("drillId", "standard");
+            c.daily = o.optBoolean("daily", false);
+            c.contractType = o.optInt("contractType", 0);
+            c.contractTarget = o.optInt("contractTarget", 0);
+            c.contractProgress = o.optInt("contractProgress", 0);
+            c.contractDone = o.optBoolean("contractDone", false);
             JSONObject or = o.optJSONObject("ores");
             if (or != null) {
                 Iterator<String> it = or.keys();
@@ -130,6 +155,12 @@ public final class SaveData {
         deaths = 0;
         perm.clear();
         inputMode = null;
+        drillId = "standard";
+        unlockedDrills.clear();
+        unlockedDrills.add("standard");
+        dailyDate = "";
+        dailyBestDepth = 0;
+        dailyBestScore = 0;
         checkpoint = null;
         lastRun = null;
         save(ctx);
@@ -158,6 +189,13 @@ public final class SaveData {
             o.put("vibrate", vibrate);
             o.put("reduceFx", reduceFx);
             o.put("sound", sound);
+            o.put("drillId", drillId);
+            JSONArray drills = new JSONArray();
+            for (String id : unlockedDrills) drills.put(id);
+            o.put("unlockedDrills", drills);
+            o.put("dailyDate", dailyDate);
+            o.put("dailyBestDepth", dailyBestDepth);
+            o.put("dailyBestScore", dailyBestScore);
             o.put("checkpoint", checkpoint == null ? JSONObject.NULL : checkpoint.toJson());
             o.put("lastRun", lastRun == null ? JSONObject.NULL : lastRun);
         } catch (JSONException ignored) {
@@ -191,6 +229,16 @@ public final class SaveData {
         d.vibrate = o.optBoolean("vibrate", true);
         d.reduceFx = o.optBoolean("reduceFx", false);
         d.sound = o.optBoolean("sound", true);
+        d.drillId = o.optString("drillId", "standard");
+        JSONArray drills = o.optJSONArray("unlockedDrills");
+        d.unlockedDrills.add("standard");
+        if (drills != null) {
+            for (int i = 0; i < drills.length(); i++) d.unlockedDrills.add(drills.optString(i));
+        }
+        if (!Drills.isUnlocked(d, d.drillId)) d.drillId = "standard";
+        d.dailyDate = o.optString("dailyDate", "");
+        d.dailyBestDepth = o.optInt("dailyBestDepth", 0);
+        d.dailyBestScore = o.optInt("dailyBestScore", 0);
         d.checkpoint = Checkpoint.fromJson(o.optJSONObject("checkpoint"));
         d.lastRun = o.optJSONObject("lastRun");
         return d;
@@ -214,6 +262,7 @@ public final class SaveData {
             o.put("oreCount", s.oreCount);
             o.put("score", s.score);
             o.put("seed", s.seed);
+            o.put("salvage", s.salvage);
             lastRun = o;
         } catch (JSONException ignored) {
         }

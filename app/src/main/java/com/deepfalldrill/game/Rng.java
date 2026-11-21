@@ -81,4 +81,34 @@ public final class Rng {
         while (sb.length() < 6) sb.append('0');
         return sb.reverse().toString();
     }
+
+    /** Returns -1 when the code is not a valid base-36 seed. */
+    public static int codeToSeed(String code) {
+        if (code == null) return -1;
+        String s = code.trim().toUpperCase();
+        if (s.isEmpty() || s.length() > 8) return -1;
+        long value = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            int digit;
+            if (ch >= '0' && ch <= '9') digit = ch - '0';
+            else if (ch >= 'A' && ch <= 'Z') digit = ch - 'A' + 10;
+            else return -1;
+            value = value * 36 + digit;
+            if (value > 0xFFFFFFFFL) return -1;
+        }
+        return (int) value;
+    }
+
+    /** Stable seed for a UTC day number (millis / 86400000). */
+    public static int dailySeed(long day) {
+        long z = day * 0x9E3779B97F4A7C15L;
+        int h = (int) (z ^ (z >>> 32));
+        h = (h ^ (h >>> 16)) * 0x45D9F3B;
+        return h ^ (h >>> 16);
+    }
+
+    public static long todayKey() {
+        return System.currentTimeMillis() / 86400000L;
+    }
 }

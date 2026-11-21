@@ -656,6 +656,10 @@ public final class WorldRenderer {
         k.bar(c, barL, barTop, barL + barW, barTop + u * 7f, hullFrac, hullColor);
         k.txt(c, String.valueOf((int) Math.ceil(g.drill.hp)), barL + barW + u * 8f, barTop + u * 7f,
                 8f, 0xFF8B95A6, Paint.Align.LEFT, true);
+        String contractLabel = (g.run.daily ? "DAILY  ·  " : "") + g.run.contractHudText();
+        int contractColor = g.run.contractDone ? 0xFF4FD18B : 0xFFFFC558;
+        k.txt(c, contractLabel, u * 14f, barTop + u * 23f, 8f,
+                contractColor, Paint.Align.LEFT, true);
 
         // ------------------------------------------------ reverse thruster button
         if (g.overdriveTimer > 0f) {

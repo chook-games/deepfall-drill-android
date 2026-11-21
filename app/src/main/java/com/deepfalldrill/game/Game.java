@@ -1,9 +1,14 @@
 package com.deepfalldrill.game;
 
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.widget.EditText;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -104,6 +109,13 @@ public final class Game {
     public boolean lastNewBest;
     public float resetConfirmTimer;
     public String pendingMode = "zones";
+    public String lastDeathCause = "the hull";
+    public int lastGapToBest;
+
+    private boolean contractNotified;
+    private boolean pendingDaily;
+    private String lastDamageSource = "the hull";
+    private volatile int pendingSeed = -1;
 
     private String inputMode = "zones";
     private final HashMap<Integer, Integer> zones = new HashMap<>();
@@ -315,6 +327,10 @@ public final class Game {
             changeMode(id.substring(5));
             return;
         }
+        if (id.startsWith("drill:")) {
+            selectDrill(id.substring(6));
+            return;
+        }
         switch (id) {
             case "play":
                 if (save.inputMode == null) {
@@ -322,11 +338,20 @@ public final class Game {
                     state = CHOOSE_INPUT;
                 } else {
                     inputMode = save.inputMode;
-                    startRun(Rng.makeSeed(), null);
+                    startRun(Rng.makeSeed(), null, false);
                 }
                 break;
+            case "daily":
+                handleDaily();
+                break;
+            case "play_seed":
+                promptSeed();
+                break;
+            case "share":
+                shareRun();
+                break;
             case "resume":
-                if (save.checkpoint != null) startRun(save.checkpoint.seed, save.checkpoint);
+                if (save.checkpoint != null) startRun(save.checkpoint.seed, save.checkpoint, save.checkpoint.daily);
                 break;
             case "start_drill":
                 if (state == SURFACE) {
@@ -351,13 +376,13 @@ public final class Game {
                 }
                 break;
             case "restart":
-                if (run != null) startRun(run.seed, null);
+                if (run != null) startRun(run.seed, null, run.daily);
                 break;
             case "quit":
                 quitToMenu();
                 break;
             case "retry":
-                startRun(Rng.makeSeed(), null);
+                startRun(Rng.makeSeed(), null, false);
                 break;
             case "menu":
                 state = MENU;
@@ -370,7 +395,12 @@ public final class Game {
                 save.save(context);
                 inputMode = pendingMode;
                 calibrateTilt();
-                startRun(Rng.makeSeed(), null);
+                if (pendingDaily) {
+                    pendingDaily = false;
+                    startDailyRun();
+                } else {
+                    startRun(Rng.makeSeed(), null, false);
+                }
                 break;
             case "toggle_vibrate":
                 save.vibrate = !save.vibrate;
@@ -417,6 +447,80 @@ public final class Game {
         toast("STEERING: " + mode.toUpperCase());
     }
 
+    private void handleDaily() {
+        if (save.inputMode == null) {
+            pendingDaily = true;
+            pendingMode = "zones";
+            state = CHOOSE_INPUT;
+            return;
+        }
+        inputMode = save.inputMode;
+        startDailyRun();
+    }
+
+    private void startDailyRun() {
+        startRun(Rng.dailySeed(Rng.todayKey()), null, true);
+    }
+
+    public boolean dailyIsToday() {
+        return String.valueOf(Rng.todayKey()).equals(save.dailyDate);
+    }
+
+    private void selectDrill(String id) {
+        boolean wasUnlocked = Drills.isUnlocked(save, id);
+        if (!Drills.selectOrBuy(save, id)) {
+            toast("NEED " + Drills.byId(id).cost + " ORE");
+            return;
+        }
+        save.save(context);
+        if (!wasUnlocked) sfx.play(Sfx.COIN, 0.9f, 1f);
+        toast((wasUnlocked ? "DRILL: " : "UNLOCKED ") + Drills.byId(id).name.toUpperCase());
+    }
+
+    private void promptSeed() {
+        if (!(context instanceof Activity)) return;
+        final Activity activity = (Activity) context;
+        activity.runOnUiThread(() -> {
+            final EditText input = new EditText(activity);
+            input.setHint("Seed code e.g. 1J2ZSOS");
+            input.setTextColor(Color.WHITE);
+            input.setHintTextColor(0xFF8B95A6);
+            new AlertDialog.Builder(activity)
+                    .setTitle("Play a seed")
+                    .setMessage("Enter the seed code a friend shared.")
+                    .setView(input)
+                    .setPositiveButton("PLAY", (dialog, which) -> {
+                        int value = Rng.codeToSeed(input.getText().toString());
+                        if (value < 0) {
+                            toast("INVALID SEED");
+                            return;
+                        }
+                        pendingSeed = value;
+                    })
+                    .setNegativeButton("CANCEL", null)
+                    .show();
+        });
+    }
+
+    private void shareRun() {
+        if (lastSummary == null) {
+            toast("FINISH A RUN FIRST");
+            return;
+        }
+        final String code = Rng.toCode(lastSummary.seed);
+        final String text = "I reached " + lastSummary.depthMeters + " m in Deepfall Drill"
+                + (lastSummary.daily ? " (Daily)" : "")
+                + ". Seed: " + code + ". \"" + deathJoke + "\" Beat it!";
+        if (!(context instanceof Activity)) return;
+        final Activity activity = (Activity) context;
+        activity.runOnUiThread(() -> {
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("text/plain");
+            send.putExtra(Intent.EXTRA_TEXT, text);
+            activity.startActivity(Intent.createChooser(send, "Share run"));
+        });
+    }
+
     private void buyPerm(String id) {
         if (Upgrades.buyPerm(save, id)) {
             save.save(context);
@@ -428,7 +532,7 @@ public final class Game {
     }
 
     // ------------------------------------------------------------------ runs
-    private void startRun(int newSeed, SaveData.Checkpoint cp) {
+    private void startRun(int newSeed, SaveData.Checkpoint cp, boolean daily) {
         seed = newSeed;
         particles.clear();
         mines.reset();
@@ -445,7 +549,7 @@ public final class Game {
                 particles.burst(x + 0.5f, y + 0.5f, 5, Particles.SMOKE, 0xFFCFD6DF, 7.5f, 0.8f, 0.55f, -9f);
             }
         };
-        run = new Run(seed, save, cp);
+        run = new Run(seed, save, cp, daily);
         drill = new Drill(terrain);
         drill.spawn(run.startX, run.startDepth, run.stats);
         hookDrill();
@@ -459,6 +563,10 @@ public final class Game {
         damageFlash = 0f;
         boostFuel = run.stats.boostCapacity;
         deathJoke = "DRILL LOST";
+        lastDeathCause = "the hull";
+        lastGapToBest = 0;
+        lastDamageSource = "the hull";
+        contractNotified = run.contractDone;
         saveAcc = 0f;
         hudAcc = 0f;
         toastTimer = 0f;
@@ -492,6 +600,9 @@ public final class Game {
         };
         drill.onDamage = (amount, source) -> {
             if (amount <= 0f) return;
+            if ("mine".equals(source)) lastDamageSource = "a mine";
+            else if ("lava".equals(source)) lastDamageSource = "lava";
+            else if ("impact".equals(source)) lastDamageSource = "falling rock";
             damageFlash = 1f;
             if ("mine".equals(source)) {
                 drill.stunTimer = Math.max(0.3f, Config.MINE_STUN - run.stats.stunResist);
@@ -514,6 +625,15 @@ public final class Game {
         int px = (int) Math.floor(drill.x);
         int py = (int) Math.floor(drill.y);
         terrain.clearPocket(px, py, 7f);
+        // A resumed run must not re-collect the ore that was already banked.
+        for (int dy = -12; dy <= 12; dy++) {
+            for (int dx = -12; dx <= 12; dx++) {
+                if (dx * dx + dy * dy > 144) continue;
+                if (Materials.isOre(terrain.get(px + dx, py + dy))) {
+                    terrain.set(px + dx, py + dy, Materials.STONE);
+                }
+            }
+        }
         mines.clearNear(px, py, 18f);
         pickups.clearNear(px, py, 18f);
         drill.vx = 0f;
@@ -618,6 +738,13 @@ public final class Game {
         mines.update(dt, drill, terrain, particles);
         if (!drill.dead) pickups.update(dt, drill);
         run.update(dt, drill.y);
+        if (run.contractDone && !contractNotified) {
+            contractNotified = true;
+            toast("CONTRACT DONE  +" + run.contractReward + " ORE");
+            sfx.play(Sfx.UPGRADE, 0.8f, 1.15f);
+            particles.text(drill.x, drill.y - 2f, "CONTRACT +" + run.contractReward, 0xFFFFB03A, 1.3f);
+            saveCheckpoint();
+        }
         particles.update(dt);
 
         float target = drill.y + Math.min(Config.CAMERA_LOOKAHEAD,
@@ -682,6 +809,7 @@ public final class Game {
         particles.burst(drill.x, drill.y, 28, Particles.SPARK, 0xFFFFB347, 30f, 0.6f, 0.6f, 36f);
         particles.burst(drill.x, drill.y, 20, Particles.SMOKE, 0xFF4A4440, 15f, 1.1f, 1.05f, -15f);
         deathJoke = pickDeathJoke();
+        lastDeathCause = lastDamageSource;
     }
 
     private String pickDeathJoke() {
@@ -696,8 +824,21 @@ public final class Game {
 
     private void finishRun() {
         lastSummary = run.summary();
-        lastNewBest = lastSummary.depthMeters > save.bestDepth;
+        lastDeathCause = lastDamageSource;
+        int previousBest = save.bestDepth;
+        lastGapToBest = Math.max(0, previousBest - lastSummary.depthMeters);
+        lastNewBest = lastSummary.depthMeters > previousBest;
         lastLevelUps = save.applyRunResult(lastSummary);
+        if (lastSummary.daily) {
+            String key = String.valueOf(Rng.todayKey());
+            if (!key.equals(save.dailyDate)) {
+                save.dailyDate = key;
+                save.dailyBestDepth = 0;
+                save.dailyBestScore = 0;
+            }
+            if (lastSummary.depthMeters > save.dailyBestDepth) save.dailyBestDepth = lastSummary.depthMeters;
+            if (lastSummary.score > save.dailyBestScore) save.dailyBestScore = lastSummary.score;
+        }
         save.save(context);
         state = DEAD;
         clearTouches();
@@ -743,6 +884,14 @@ public final class Game {
 
     // ------------------------------------------------------------------ frame
     public void update(float dt) {
+        if (pendingSeed >= 0
+                && (state == MENU || state == SETTINGS || state == WORKSHOP
+                || state == DEAD || state == CHOOSE_INPUT)) {
+            int requested = pendingSeed;
+            pendingSeed = -1;
+            inputMode = save.inputMode != null ? save.inputMode : "zones";
+            startRun(requested, null, false);
+        }
         time += dt;
         if (toastTimer > 0f) toastTimer = Math.max(0f, toastTimer - dt);
         if (resetConfirmTimer > 0f) resetConfirmTimer = Math.max(0f, resetConfirmTimer - dt);
